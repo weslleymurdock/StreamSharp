@@ -44,77 +44,77 @@
     }
     else if (serverFailedToAwake)
     {
-    <MudPaper Class="pa-8 elevation-6 rounded-lg text-center">
-        <MudIcon Icon="@Icons.Material.Filled.CloudOff" Color="Color.Error" Size="Size.Large" Class="mb-3" />
-            
-        <MudText Typo="Typo.h6" Color="Color.Error" Class="mb-2">
-            Não foi possível conectar ao servidor
-        </MudText>
-            
-        <MudText Typo="Typo.body2" Class="mb-6">
-            @awakeningMessage
-        </MudText>
+        <MudPaper Class="pa-8 elevation-6 rounded-lg text-center">
+            <MudIcon Icon="@Icons.Material.Filled.CloudOff" Color="Color.Error" Size="Size.Large" Class="mb-3" />
+                
+            <MudText Typo="Typo.h6" Color="Color.Error" Class="mb-2">
+                Não foi possível conectar ao servidor
+            </MudText>
+                
+            <MudText Typo="Typo.body2" Class="mb-6">
+                @awakeningMessage
+            </MudText>
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
-                   OnClick="AwakeServerAndConnect">
-            Tentar Novamente
-        </MudButton>
-    </MudPaper>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
+                    OnClick="AwakeServerAndConnect">
+                Tentar Novamente
+            </MudButton>
+        </MudPaper>
     }
     else if (isServerReady)
     {
-    <MudPaper Class="pa-6 elevation-6 rounded-lg">
-        <EditForm Model="@downloadModel" OnValidSubmit="InitiateDownload">
-            <DataAnnotationsValidator />
+        <MudPaper Class="pa-6 elevation-6 rounded-lg">
+            <EditForm Model="@downloadModel" OnValidSubmit="InitiateDownload">
+                <DataAnnotationsValidator />
 
-            <MudTextField @bind-Value="downloadModel.Url" Label="URL do Vídeo" Variant="Variant.Outlined"
-                          Placeholder="Cole o link do vídeo ou iframe aqui..." Disabled="isProcessing"
-                          For="@(() => downloadModel.Url)" Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Link" />
+                <MudTextField @bind-Value="downloadModel.Url" Label="URL do Vídeo" Variant="Variant.Outlined"
+                            Placeholder="Cole o link do vídeo ou iframe aqui..." Disabled="isProcessing"
+                            For="@(() => downloadModel.Url)" Adornment="Adornment.Start"
+                            AdornmentIcon="@Icons.Material.Filled.Link" />
 
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-                       Class="mt-4 py-3" Size="Size.Large" Disabled="isProcessing">
-                @if (isProcessing)
-                {
-                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
-                    <MudText Class="ms-2">Processando Requisição...</MudText>
-                }
-                else
-                {
-                    <MudText>Iniciar Download</MudText>
-                }
-            </MudButton>
-        </EditForm>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                        Class="mt-4 py-3" Size="Size.Large" Disabled="isProcessing">
+                    @if (isProcessing)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Processando Requisição...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Iniciar Download</MudText>
+                    }
+                </MudButton>
+            </EditForm>
 
-        @if (currentJob is not null)
-        {
-            <MudCard Class="mt-6 pa-5 border-solid border-2 mud-border-primary rounded-lg elevation-2">
-                <div class="d-flex justify-space-between align-center mb-2">
-                    <MudText Typo="Typo.body1">
-                        <b>Status:</b> @statusMessage
-                    </MudText>
-                    <MudChip T="string" Color="@GetStatusColor(currentJob.Status)" Size="Size.Small"
-                             Variant="Variant.Filled">
-                        @currentJob.Status
-                    </MudChip>
-                </div>
+            @if (currentJob is not null)
+            {
+                <MudCard Class="mt-6 pa-5 border-solid border-2 mud-border-primary rounded-lg elevation-2">
+                    <div class="d-flex justify-space-between align-center mb-2">
+                        <MudText Typo="Typo.body1">
+                            <b>Status:</b> @statusMessage
+                        </MudText>
+                        <MudChip T="string" Color="@GetStatusColor(currentJob.Status)" Size="Size.Small"
+                                Variant="Variant.Filled">
+                            @currentJob.Status
+                        </MudChip>
+                    </div>
 
-                <MudProgressLinear Color="@GetProgressColor(currentJob.Status)" Value="currentJob.Progress"
-                                   Size="Size.Large" Striped="true" Class="my-3 rounded">
-                    <MudText Typo="Typo.caption" Color="Color.Dark">
-                        <b>@currentJob.Progress.ToString("F1")%</b>
-                    </MudText>
-                </MudProgressLinear>
+                    <MudProgressLinear Color="@GetProgressColor(currentJob.Status)" Value="currentJob.Progress"
+                                    Size="Size.Large" Striped="true" Class="my-3 rounded">
+                        <MudText Typo="Typo.caption" Color="Color.Dark">
+                            <b>@currentJob.Progress.ToString("F1")%</b>
+                        </MudText>
+                    </MudProgressLinear>
 
-                @if (!string.IsNullOrEmpty(currentJob.ErrorMessage))
-                {
-                    <MudAlert Severity="Severity.Error" Class="mt-3">
-                        @currentJob.ErrorMessage
-                    </MudAlert>
-                }
-            </MudCard>
-        }
-    </MudPaper>
+                    @if (!string.IsNullOrEmpty(currentJob.ErrorMessage))
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-3">
+                            @currentJob.ErrorMessage
+                        </MudAlert>
+                    }
+                </MudCard>
+            }
+        </MudPaper>
     }
 </MudContainer>
 
