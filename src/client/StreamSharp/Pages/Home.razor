@@ -2,10 +2,12 @@
 @using System.Net.Http.Json
 @using System.Text.Json.Serialization
 @using Microsoft.AspNetCore.SignalR.Client
+@using StreamSharp.Services.Abstract
+@inject IRenderAwakenerService AwakenerService
 @inject IHttpClientFactory HttpClientFactory
+@inject IConfiguration Configuration
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
-@inject IConfiguration Configuration
 @implements IAsyncDisposable
 
 <PageTitle>StreamSharp - Downloader</PageTitle>
@@ -19,26 +21,62 @@
         Baixe vídeos e transmissões em tempo real com alta performance.
     </MudText>
 
+    <!-- ESTADO 1: ACORDANDO O SERVIDOR NO RENDER -->
+    @if (isServerAwakening)
+    {
+        <MudPaper Class="pa-8 elevation-6 rounded-lg text-center">
+            <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" Class="mb-4" />
+            
+            <MudText Typo="Typo.h6" Class="mb-2">
+                Inicializando Servidor...
+            </MudText>
+            
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                @awakeningMessage
+            </MudText>
+
+            <MudProgressLinear Color="Color.Info" Indeterminate="true" Class="rounded" />
+            
+            <MudText Typo="Typo.caption" Color="Color.Dark" Class="mt-3 d-block">
+                Serviços de hospedagem gratuita colocam a aplicação em modo de repouso após inatividade. Isso pode levar até
+                45 segundos.
+            </MudText>
+        </MudPaper>
+    }
+    <!-- ESTADO 2: FALHA AO CONECTAR AO SERVIDOR -->
+    else if (serverFailedToAwake)
+    {
+    <MudPaper Class="pa-8 elevation-6 rounded-lg text-center">
+        <MudIcon Icon="@Icons.Material.Filled.CloudOff" Color="Color.Error" Size="Size.Large" Class="mb-3" />
+            
+        <MudText Typo="Typo.h6" Color="Color.Error" Class="mb-2">
+            Não foi possível conectar ao servidor
+        </MudText>
+            
+        <MudText Typo="Typo.body2" Class="mb-6">
+            @awakeningMessage
+        </MudText>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
+                   OnClick="AwakeServerAndConnect">
+            Tentar Novamente
+        </MudButton>
+    </MudPaper>
+    }
+    <!-- ESTADO 3: SERVIDOR PRONTO E ONLINE -->
+    else if (isServerReady)
+    {
     <MudPaper Class="pa-6 elevation-6 rounded-lg">
         <EditForm Model="@downloadModel" OnValidSubmit="InitiateDownload">
             <DataAnnotationsValidator />
 
-            <MudTextField @bind-Value="downloadModel.Url"
-                          Label="URL do Vídeo"
-                          Variant="Variant.Outlined"
-                          Placeholder="Cole o link do vídeo ou iframe aqui..."
-                          Disabled="isProcessing"
-                          For="@(() => downloadModel.Url)"
-                          Adornment="Adornment.Start"
+            <MudTextField @bind-Value="downloadModel.Url" Label="URL do Vídeo" Variant="Variant.Outlined"
+                          Placeholder="Cole o link do vídeo ou iframe aqui..." Disabled="isProcessing"
+                          For="@(() => downloadModel.Url)" Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Link" />
 
-            <MudButton ButtonType="ButtonType.Submit"
-                       Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       FullWidth="true"
-                       Class="mt-4 py-3"
-                       Size="Size.Large"
-                       Disabled="isProcessing">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       Class="mt-4 py-3" Size="Size.Large" Disabled="isProcessing">
                 @if (isProcessing)
                 {
                     <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
@@ -58,17 +96,14 @@
                     <MudText Typo="Typo.body1">
                         <b>Status:</b> @statusMessage
                     </MudText>
-                    <MudChip T="string" Color="@GetStatusColor(currentJob.Status)" Size="Size.Small" Variant="Variant.Filled">
+                    <MudChip T="string" Color="@GetStatusColor(currentJob.Status)" Size="Size.Small"
+                             Variant="Variant.Filled">
                         @currentJob.Status
                     </MudChip>
                 </div>
 
-                <!-- Barra de Progresso MudBlazor -->
-                <MudProgressLinear Color="@GetProgressColor(currentJob.Status)"
-                                   Value="currentJob.Progress"
-                                   Size="Size.Large"
-                                   Striped="true"
-                                   Class="my-3 rounded">
+                <MudProgressLinear Color="@GetProgressColor(currentJob.Status)" Value="currentJob.Progress"
+                                   Size="Size.Large" Striped="true" Class="my-3 rounded">
                     <MudText Typo="Typo.caption" Color="Color.Dark">
                         <b>@currentJob.Progress.ToString("F1")%</b>
                     </MudText>
@@ -83,25 +118,69 @@
             </MudCard>
         }
     </MudPaper>
+    }
 </MudContainer>
 
 @code {
+    // Controle de estado da inicialização do Render
+    private bool isServerAwakening = true;
+    private bool isServerReady = false;
+    private bool serverFailedToAwake = false;
+    private string awakeningMessage = "Aguardando resposta do servidor...";
+
+    // Controle de estado do Download
     private DownloadModel downloadModel = new();
     private JobState? currentJob;
     private bool isProcessing = false;
     private string statusMessage = "Aguardando...";
     private HubConnection? hubConnection;
-    private string ApiBaseUrl => Configuration["ApiBaseUrl"]!;
+
     private HttpClient ApiClient => HttpClientFactory.CreateClient("StreamSharpApi");
+    private string ApiBaseUrl => Configuration["ApiBaseUrl"]?.TrimEnd('/') ?? "http://localhost:8080";
+
     protected override async Task OnInitializedAsync()
     {
-        // 1. Configura a conexão do SignalR com Reconexão Automática
+        await AwakeServerAndConnect();
+    }
+
+    private async Task AwakeServerAndConnect()
+    {
+        isServerAwakening = true;
+        isServerReady = false;
+        serverFailedToAwake = false;
+        StateHasChanged();
+
+        // 1. Aguarda o RenderAwakenerService validar o /api/health
+        bool isAwake = await AwakenerService.EnsureApiIsAwakeAsync((attempt, message) =>
+        {
+            awakeningMessage = message;
+            StateHasChanged();
+        });
+
+        if (isAwake)
+        {
+            isServerAwakening = false;
+            isServerReady = true;
+            StateHasChanged();
+
+            // 2. Conecta ao SignalR Hub apenas quando a API estiver 100% pronta
+            await InitializeSignalRHubAsync();
+        }
+        else
+        {
+            isServerAwakening = false;
+            serverFailedToAwake = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task InitializeSignalRHubAsync()
+    {
         hubConnection = new HubConnectionBuilder()
             .WithUrl($"{ApiBaseUrl}/hubs/download")
             .WithAutomaticReconnect()
             .Build();
 
-        // 2. Registra o ouvinte de progresso enviado pelo Hub
         hubConnection.On<string, double, string>("ReceiveProgress", (jobId, percent, message) =>
         {
             if (currentJob?.JobId == jobId)
@@ -113,7 +192,6 @@
             }
         });
 
-        // 3. Registra o ouvinte de conclusão do download
         hubConnection.On<string>("DownloadCompleted", async (jobId) =>
         {
             if (currentJob?.JobId == jobId)
@@ -124,13 +202,11 @@
                 isProcessing = false;
                 StateHasChanged();
 
-                // Dispara o download nativo do navegador para o arquivo .mp4 gerado
                 string downloadUrl = $"{ApiBaseUrl}/api/video/stream-file/{jobId}";
                 await JS.InvokeVoidAsync("open", downloadUrl, "_self");
             }
         });
 
-        // 4. Registra o ouvinte para falhas/erros
         hubConnection.On<string, string>("DownloadFailed", (jobId, error) =>
         {
             if (currentJob?.JobId == jobId)
@@ -155,7 +231,6 @@
 
         try
         {
-            // Envia o POST /api/video/download para passar pelo RateLimiter e criar o Job
             var response = await ApiClient.PostAsJsonAsync("api/video/download", downloadModel);
 
             if (response.IsSuccessStatusCode)
@@ -173,7 +248,6 @@
 
                     statusMessage = result.Message;
 
-                    // Registra o cliente no Grupo do SignalR referente ao JobId para receber notificações ativas
                     if (hubConnection is not null && hubConnection.State == HubConnectionState.Connected)
                     {
                         await hubConnection.SendAsync("SubscribeToJob", result.JobId);
@@ -225,7 +299,6 @@
         }
     }
 
-    // Modelos de Suporte e DTOs
     public class DownloadModel
     {
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "A URL é obrigatória.")]
