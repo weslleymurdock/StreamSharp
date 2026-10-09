@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/client/">
+    <Project Path="src/client/StreamSharp/StreamSharp.csproj" />
+  </Folder>
+  <Folder Name="/src/server/">
+    <Project Path="src/server/StreamSharp/StreamSharp.csproj" />
+  </Folder>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
+</Solution>
