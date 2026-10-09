@@ -21,7 +21,6 @@
         Baixe vídeos e transmissões em tempo real com alta performance.
     </MudText>
 
-    <!-- ESTADO 1: ACORDANDO O SERVIDOR NO RENDER -->
     @if (isServerAwakening)
     {
         <MudPaper Class="pa-8 elevation-6 rounded-lg text-center">
@@ -43,7 +42,6 @@
             </MudText>
         </MudPaper>
     }
-    <!-- ESTADO 2: FALHA AO CONECTAR AO SERVIDOR -->
     else if (serverFailedToAwake)
     {
     <MudPaper Class="pa-8 elevation-6 rounded-lg text-center">
@@ -63,7 +61,6 @@
         </MudButton>
     </MudPaper>
     }
-    <!-- ESTADO 3: SERVIDOR PRONTO E ONLINE -->
     else if (isServerReady)
     {
     <MudPaper Class="pa-6 elevation-6 rounded-lg">
